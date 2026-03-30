@@ -1,0 +1,33 @@
+SegmentKit Commercial License
+
+Copyright (c) 2025-2026 Tusoon Wellness. All rights reserved.
+
+This software is licensed, not sold. By using SegmentKit, you agree to the
+following terms:
+
+1. LICENSE GRANT
+   Subject to a valid license key, you are granted a non-exclusive,
+   non-transferable license to use SegmentKit in your applications.
+
+2. RESTRICTIONS
+   You may not:
+   - Reverse engineer, decompile, or disassemble the SDK
+   - Redistribute the SDK binary outside your application
+   - Remove or alter any license validation mechanisms
+   - Use the SDK after your license has expired without renewal
+
+3. TRIAL LICENSE
+   A 7-day trial license provides full access to all features. After expiry,
+   a paid license is required for continued use.
+
+4. OPEN SOURCE COMPONENTS
+   SegmentKit incorporates the EdgeTAM model architecture, which is licensed
+   under the MIT License by Meta Research. The MIT License applies only to
+   those components and does not extend to the SegmentKit SDK as a whole.
+
+5. DISCLAIMER
+   THE SDK IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. IN NO EVENT
+   SHALL TUSOON WELLNESS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY.
+
+For licensing inquiries: chenweisomebody@gmail.com
+Website: https://segmentkit.dev
