@@ -1,0 +1,13 @@
+/* ContentView — state overlay */
+"tap_to_track" = "点击目标开始追踪";
+"initializing" = "正在初始化...";
+"target_lost" = "目标丢失 — 点击重新选择";
+"retry" = "重试";
+
+/* ContentView — permission denied */
+"camera_permission_title" = "需要相机权限";
+"camera_permission_message" = "请在系统设置中允许 SegmentKit Demo 访问相机";
+"open_settings" = "打开设置";
+
+/* Info.plist */
+"NSCameraUsageDescription" = "SegmentKit Demo 需要相机权限来展示实时目标追踪与分割功能。";

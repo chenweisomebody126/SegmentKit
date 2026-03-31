@@ -1,0 +1,2 @@
+"CFBundleDisplayName" = "SegmentKit";
+"NSCameraUsageDescription" = "SegmentKit Demo 需要相机权限来展示实时目标追踪与分割功能。";

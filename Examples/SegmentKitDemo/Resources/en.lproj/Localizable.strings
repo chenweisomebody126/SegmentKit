@@ -1,0 +1,13 @@
+/* ContentView — state overlay */
+"tap_to_track" = "Tap an object to start tracking";
+"initializing" = "Initializing...";
+"target_lost" = "Target lost — tap to reselect";
+"retry" = "Retry";
+
+/* ContentView — permission denied */
+"camera_permission_title" = "Camera Permission Required";
+"camera_permission_message" = "Please allow SegmentKit Demo to access your camera in Settings.";
+"open_settings" = "Open Settings";
+
+/* Info.plist */
+"NSCameraUsageDescription" = "SegmentKit Demo needs camera access to demonstrate real-time object tracking and segmentation.";

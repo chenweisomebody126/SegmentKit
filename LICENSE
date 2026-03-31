@@ -1,6 +1,6 @@
 SegmentKit Commercial License
 
-Copyright (c) 2025-2026 Tusoon Wellness. All rights reserved.
+Copyright (c) 2025-2026 Wei Chen. All rights reserved.
 
 This software is licensed, not sold. By using SegmentKit, you agree to the
 following terms:
@@ -21,13 +21,15 @@ following terms:
    a paid license is required for continued use.
 
 4. OPEN SOURCE COMPONENTS
-   SegmentKit incorporates the EdgeTAM model architecture, which is licensed
-   under the MIT License by Meta Research. The MIT License applies only to
+   SegmentKit incorporates the EdgeTAM model architecture and weights,
+   originally developed by Meta Platforms, Inc. and licensed under the
+   Apache License, Version 2.0. The Apache 2.0 License applies only to
    those components and does not extend to the SegmentKit SDK as a whole.
+   See THIRD_PARTY_LICENSES for details.
 
 5. DISCLAIMER
    THE SDK IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND. IN NO EVENT
-   SHALL TUSOON WELLNESS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY.
+   SHALL WEI CHEN BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY.
 
 For licensing inquiries: chenweisomebody@gmail.com
 Website: https://segmentkit.dev

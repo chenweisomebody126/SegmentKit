@@ -1,0 +1,2 @@
+"CFBundleDisplayName" = "SegmentKit";
+"NSCameraUsageDescription" = "SegmentKit Demo needs camera access to demonstrate real-time object tracking and segmentation.";

@@ -33,42 +33,45 @@ Or add to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/chenweisomebody126/SegmentKit", from: "1.0.0")
+    .package(url: "https://github.com/chenweisomebody126/SegmentKit", from: "0.1.0")
 ]
 ```
 
 ## Quick Start
 
 ```swift
-import SegmentKit
+import EdgeTAMKit
 
-// 1. Configure with your license key
-SegmentKit.configure(licenseKey: "your-license-key")
+// 1. Configure with your license key (or use free mode)
+try SegmentKit.configure(licenseKey: "your-license-key")
 
-// 2. Create a tracker
-let tracker = try await SKVideoTracker()
+// 2. Create a segmenter (liveStream mode for real-time camera)
+let options = ETKSegmenterOptions()
+options.runningMode = .liveStream
+options.liveStreamDelegate = self
+let segmenter = try ETKSegmenter(options: options)
 
-// 3. Add a prompt (tap point)
-tracker.addPrompt(.point(x: 0.5, y: 0.5, label: .foreground))
+// 3. Send camera frames — SDK handles frame dropping automatically
+try segmenter.segmentAsync(
+    frame: pixelBuffer,
+    prompt: .point(tapPoint),   // first frame needs a prompt
+    timestampMs: timestampMs
+)
 
-// 4. Process frames
-let mask = try await tracker.track(frame: pixelBuffer)
-```
-
-### SwiftUI Camera View
-
-```swift
-import SegmentKit
-
-struct ContentView: View {
-    var body: some View {
-        SKCameraView { result in
-            // result.mask — segmentation mask
-            // result.fps  — current processing FPS
-        }
-    }
+// 4. Receive results via delegate
+func segmenter(_ segmenter: ETKSegmenter,
+               didFinishWith result: ETKTrackResult?,
+               timestampMs: Int, error: Error?) {
+    guard let result else { return }
+    // result.mask — 256×256 segmentation mask
+    // result.confidence — IoU score
+    // result.isTracking — target still visible?
 }
 ```
+
+## Example App
+
+See [`Examples/SegmentKitDemo/`](Examples/SegmentKitDemo/) for a complete, runnable demo app with camera preview, tap-to-track, and mask overlay — localized in English and Chinese.
 
 ## Pricing
 
@@ -89,7 +92,7 @@ Full documentation available at [segmentkit.dev/docs](https://segmentkit.dev#doc
 
 SegmentKit is a commercial SDK. See [LICENSE](LICENSE) for details.
 
-The underlying EdgeTAM model is open source under MIT License by Meta Research.
+The underlying EdgeTAM model is open source under Apache License 2.0 by Meta Platforms, Inc. See [THIRD_PARTY_LICENSES](THIRD_PARTY_LICENSES) for details.
 
 ## Support
 
