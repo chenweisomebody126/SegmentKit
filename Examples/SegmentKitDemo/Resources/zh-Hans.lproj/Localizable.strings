@@ -1,6 +1,8 @@
 /* ContentView — state overlay */
+"app_description" = "基于 EdgeTAM 的\n实时目标分割";
+"start_tracking" = "启动";
 "tap_to_track" = "点击目标开始追踪";
-"initializing" = "正在初始化...";
+"loading_model" = "正在加载模型...";
 "target_lost" = "目标丢失 — 点击重新选择";
 "retry" = "重试";
 

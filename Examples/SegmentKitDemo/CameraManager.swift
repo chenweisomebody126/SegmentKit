@@ -26,6 +26,9 @@ final class CameraManager: NSObject, ObservableObject {
     /// 每帧回调: 在 capture session queue 上调用
     var onFrame: ((CVPixelBuffer) -> Void)?
 
+    /// 预览视图引用（用 UIImageView 渲染，支持截图）
+    weak var previewView: CameraPreviewUIView?
+
     // MARK: - 内部属性
 
     let captureSession = AVCaptureSession()
@@ -141,6 +144,9 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
                        didOutput sampleBuffer: CMSampleBuffer,
                        from connection: AVCaptureConnection) {
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        // 更新预览（UIImageView，支持截图捕获）
+        previewView?.updateWithPixelBuffer(pixelBuffer)
+        // 回调给追踪 pipeline
         onFrame?(pixelBuffer)
     }
 }

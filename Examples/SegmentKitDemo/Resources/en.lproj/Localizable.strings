@@ -1,6 +1,8 @@
 /* ContentView — state overlay */
+"app_description" = "Real-time object segmentation\npowered by EdgeTAM";
+"start_tracking" = "Start";
 "tap_to_track" = "Tap an object to start tracking";
-"initializing" = "Initializing...";
+"loading_model" = "Loading model...";
 "target_lost" = "Target lost — tap to reselect";
 "retry" = "Retry";
 

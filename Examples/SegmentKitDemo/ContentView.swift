@@ -3,31 +3,25 @@ import EdgeTAMKit
 
 /// 主界面 — 相机预览 + tracking 控制
 ///
-/// 布局:
-/// ┌─────────────────────────┐
-/// │                         │
-/// │    Camera Preview       │
-/// │    (带 mask overlay)     │
-/// │                         │
-/// │         [tap here]      │
-/// │                         │
-/// ├─────────────────────────┤
-/// │ FPS: 34  IoU: 0.95      │
-/// │ [Reset]  [Pause]        │
-/// └─────────────────────────┘
+/// 生命周期:
+///   stopped  → [启动] → loading → ready → [tap] → tracking → [关闭] → stopped
+///   进后台自动 stop()，回前台保持 stopped 等用户手动启动
 struct ContentView: View {
 
     @StateObject private var cameraManager = CameraManager()
     @StateObject private var viewModel = TrackingViewModel()
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         GeometryReader { geometry in
             ZStack {
                 Color.black.ignoresSafeArea()
 
-                // 相机预览
-                CameraPreviewView(session: cameraManager.captureSession)
-                    .ignoresSafeArea()
+                // 相机预览（仅在非 stopped 状态显示）
+                if viewModel.trackingState != .stopped {
+                    CameraPreviewView(cameraManager: cameraManager)
+                        .ignoresSafeArea()
+                }
 
                 // Mask 叠加层
                 if let result = viewModel.currentResult, viewModel.trackingState == .tracking {
@@ -39,17 +33,19 @@ struct ContentView: View {
                 // 状态提示（居中）
                 stateOverlay
 
-                // 点击手势层
-                Color.clear
-                    .contentShape(Rectangle())
-                    .onTapGesture { location in
-                        let normalized = CGPoint(
-                            x: location.x / geometry.size.width,
-                            y: location.y / geometry.size.height
-                        )
-                        viewModel.handleTap(normalizedPoint: normalized)
-                    }
-                    .ignoresSafeArea()
+                // 点击手势层（仅在 ready/lost 时响应）
+                if viewModel.trackingState == .ready || viewModel.trackingState == .lost {
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .onTapGesture { location in
+                            let normalized = CGPoint(
+                                x: location.x / geometry.size.width,
+                                y: location.y / geometry.size.height
+                            )
+                            viewModel.handleTap(normalizedPoint: normalized)
+                        }
+                        .ignoresSafeArea()
+                }
 
                 // 底部控制栏
                 VStack {
@@ -60,18 +56,35 @@ struct ContentView: View {
         }
         .onAppear {
             cameraManager.requestAuthorization()
+            viewModel.cameraManager = cameraManager
             // 将帧回调连接到 ViewModel
             cameraManager.onFrame = { [weak viewModel] buffer in
                 viewModel?.processVideoFrame(buffer)
             }
         }
         .onChange(of: cameraManager.authorizationStatus) { newStatus in
-            if newStatus == .authorized {
-                cameraManager.start()
+            // 权限授权后自动启动
+            if newStatus == .authorized && viewModel.trackingState == .stopped {
+                viewModel.start()
+            }
+        }
+        .onChange(of: scenePhase) { phase in
+            switch phase {
+            case .background:
+                // 进后台：释放所有资源
+                viewModel.stop()
+            case .active:
+                // 回前台：如果有权限，自动启动
+                if cameraManager.authorizationStatus == .authorized
+                    && viewModel.trackingState == .stopped {
+                    viewModel.start()
+                }
+            default:
+                break
             }
         }
         .onDisappear {
-            cameraManager.stop()
+            viewModel.stop()
         }
         // 权限被拒绝时的覆盖层
         .overlay {
@@ -86,10 +99,12 @@ struct ContentView: View {
     @ViewBuilder
     private var stateOverlay: some View {
         switch viewModel.trackingState {
-        case .idle:
-            promptBubble(text: String(localized: "tap_to_track"), icon: "hand.tap")
+        case .stopped:
+            stoppedView
         case .loading:
-            promptBubble(text: String(localized: "initializing"), icon: "gearshape.2")
+            loadingView
+        case .ready:
+            promptBubble(text: String(localized: "tap_to_track"), icon: "hand.tap")
         case .lost:
             promptBubble(text: String(localized: "target_lost"), icon: "exclamationmark.triangle")
         case .error(let msg):
@@ -97,6 +112,56 @@ struct ContentView: View {
         case .tracking:
             EmptyView()
         }
+    }
+
+    /// 停止态 — 显示启动按钮
+    private var stoppedView: some View {
+        VStack(spacing: 20) {
+            Image(systemName: "camera.viewfinder")
+                .font(.system(size: 48))
+                .foregroundColor(.gray)
+            Text(String(localized: "app_description"))
+                .font(.system(size: 15))
+                .foregroundColor(.gray)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+            Button {
+                if cameraManager.authorizationStatus == .authorized {
+                    viewModel.start()
+                } else {
+                    cameraManager.requestAuthorization()
+                }
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "play.fill")
+                    Text(String(localized: "start_tracking"))
+                }
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundColor(.white)
+                .padding(.horizontal, 32)
+                .padding(.vertical, 14)
+                .background(
+                    LinearGradient(colors: [.blue, .cyan], startPoint: .leading, endPoint: .trailing)
+                )
+                .clipShape(Capsule())
+            }
+        }
+    }
+
+    /// 加载中
+    private var loadingView: some View {
+        VStack(spacing: 12) {
+            ProgressView()
+                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                .scaleEffect(1.2)
+            Text(String(localized: "loading_model"))
+                .font(.system(size: 16, weight: .medium))
+                .foregroundColor(.white)
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 16)
+        .background(.ultraThinMaterial.opacity(0.8))
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
     /// 提示气泡
@@ -126,7 +191,8 @@ struct ContentView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
             Button(String(localized: "retry")) {
-                viewModel.reset()
+                viewModel.stop()
+                viewModel.start()
             }
             .buttonStyle(.bordered)
             .tint(.blue)
@@ -168,7 +234,6 @@ struct ContentView: View {
             // FPS 和 Confidence 指标
             if viewModel.trackingState == .tracking {
                 HStack(spacing: 12) {
-                    // FPS
                     HStack(spacing: 4) {
                         Text("FPS")
                             .font(.system(size: 11, weight: .bold))
@@ -180,7 +245,6 @@ struct ContentView: View {
                     Divider()
                         .frame(height: 16)
 
-                    // IoU
                     HStack(spacing: 4) {
                         Text("IoU")
                             .font(.system(size: 11, weight: .bold))
@@ -192,7 +256,6 @@ struct ContentView: View {
                     Divider()
                         .frame(height: 16)
 
-                    // 帧号
                     Text("#\(viewModel.frameCount)")
                         .font(.system(size: 13, design: .monospaced))
                         .foregroundColor(.gray)
@@ -215,10 +278,10 @@ struct ContentView: View {
                 .tint(.white)
             }
 
-            // 重置
+            // 重置追踪（回到 ready，保留模型）
             if viewModel.trackingState == .tracking || viewModel.trackingState == .lost {
                 Button {
-                    viewModel.reset()
+                    viewModel.resetTracking()
                 } label: {
                     Image(systemName: "arrow.counterclockwise")
                         .font(.system(size: 16))
@@ -227,9 +290,22 @@ struct ContentView: View {
                 .buttonStyle(.bordered)
                 .tint(.orange)
             }
+
+            // 关闭按钮（释放所有资源）
+            if viewModel.trackingState != .stopped {
+                Button {
+                    viewModel.stop()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 16))
+                        .frame(width: 36, height: 36)
+                }
+                .buttonStyle(.bordered)
+                .tint(.red)
+            }
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
-        .background(.ultraThinMaterial.opacity(0.85))
+        .background(viewModel.trackingState != .stopped ? AnyShapeStyle(.ultraThinMaterial.opacity(0.85)) : AnyShapeStyle(.clear))
     }
 }

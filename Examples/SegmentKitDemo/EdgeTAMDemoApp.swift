@@ -1,18 +1,16 @@
 import SwiftUI
 import EdgeTAMKit
 
-/// SegmentKit Demo App
+/// SegmentKit Demo App 入口
 ///
-/// To unlock all features, get a license key at https://segmentkit.dev
-/// Then replace `SegmentKit.configure()` with:
-///   `try SegmentKit.configure(licenseKey: "YOUR_KEY")`
+/// 启动时用内置开发密钥配置 SDK（全功能），无需用户输入 License。
+/// 打开即用，展示实时视频分割能力。
 @main
-struct SegmentKitDemoApp: App {
+struct EdgeTAMDemoApp: App {
 
     init() {
-        // Free mode — single target tracking with watermark
-        // Get a trial key at https://segmentkit.dev for full features
-        SegmentKit.configure()
+        // 使用开发密钥，解锁全部功能（多目标追踪、无水印）
+        try? SegmentKit.configure(licenseKey: "ETK-DEV-UNLIMITED")
     }
 
     var body: some Scene {

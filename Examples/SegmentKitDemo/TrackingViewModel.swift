@@ -5,16 +5,23 @@ import UIKit
 
 /// 追踪状态机
 enum TrackingState: Equatable {
-    case idle
+    /// 已停止 — 模型未加载，相机未启动，不占用资源
+    case stopped
+    /// 模型加载中
     case loading
+    /// 就绪 — 模型已加载，等待用户 tap
+    case ready
+    /// 追踪中
     case tracking
+    /// 目标丢失
     case lost
+    /// 错误
     case error(String)
 
     static func == (lhs: TrackingState, rhs: TrackingState) -> Bool {
         switch (lhs, rhs) {
-        case (.idle, .idle), (.loading, .loading),
-             (.tracking, .tracking), (.lost, .lost):
+        case (.stopped, .stopped), (.loading, .loading),
+             (.ready, .ready), (.tracking, .tracking), (.lost, .lost):
             return true
         case (.error(let a), .error(let b)):
             return a == b
@@ -24,19 +31,18 @@ enum TrackingState: Equatable {
     }
 }
 
-/// 追踪视图模型 — 管理 ETKSegmenter (liveStream 模式) 生命周期
+/// 追踪视图模型 — 管理 ETKSegmenter (liveStream 模式) 完整生命周期
 ///
-/// 使用 liveStream 模式:
-///   - segmentAsync() fire-and-forget，SDK 自动丢帧
-///   - 结果通过 ETKSegmenterLiveStreamDelegate 回调到 asyncQueue
-///   - ViewModel 在 delegate 中 dispatch 到 MainActor 更新 UI
+/// 生命周期:
+///   stopped → start() → loading → ready → tap → tracking → stop() → stopped
 ///
-/// 调用者只需在相机帧到达时调用 processVideoFrame()。
+/// start() 加载模型 + 启动相机
+/// stop()  释放模型 + 停止相机，完全释放内存
 final class TrackingViewModel: ObservableObject, ETKSegmenterLiveStreamDelegate {
 
     // MARK: - UI 状态 (MainActor)
 
-    @Published var trackingState: TrackingState = .idle
+    @Published var trackingState: TrackingState = .stopped
     @Published var currentResult: ETKTrackResult?
     @Published var confidence: Float = 0
     @Published var fps: Double = 0
@@ -46,6 +52,7 @@ final class TrackingViewModel: ObservableObject, ETKSegmenterLiveStreamDelegate 
     // MARK: - 内部状态
 
     private var segmenter: ETKSegmenter?
+    private var isPreloading = false
 
     /// 暂存的点击坐标（等待下一帧触发首帧处理）
     private var pendingTapPoint: CGPoint?
@@ -61,46 +68,109 @@ final class TrackingViewModel: ObservableObject, ETKSegmenterLiveStreamDelegate 
     /// 相机管理器引用（弱引用避免循环）
     weak var cameraManager: CameraManager?
 
-    // MARK: - 公开接口
+    // MARK: - 生命周期
 
-    /// 处理用户点击 — 初始化追踪
+    /// 启动 — 加载模型 + 启动相机
+    func start() {
+        guard trackingState == .stopped || trackingState == .error("") || {
+            if case .error = trackingState { return true }
+            return false
+        }() else { return }
+        guard !isPreloading else { return }
+
+        trackingState = .loading
+        isPreloading = true
+
+        // 启动相机
+        cameraManager?.start()
+
+        // 后台加载模型
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            do {
+                let options = ETKSegmenterOptions()
+                options.runningMode = .liveStream
+                options.liveStreamDelegate = self
+                let s = try ETKSegmenter(options: options)
+
+                DispatchQueue.main.async {
+                    guard let self else { return }
+                    self.segmenter = s
+                    self.isPreloading = false
+                    self.trackingState = .ready
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self?.trackingState = .error(error.localizedDescription)
+                    self?.isPreloading = false
+                }
+            }
+        }
+    }
+
+    /// 停止 — 释放模型 + 停止相机，完全释放内存
+    func stop() {
+        // 停止相机
+        cameraManager?.stop()
+
+        // 释放模型
+        segmenter = nil
+        isPreloading = false
+        pendingTapPoint = nil
+        timestampMs = 0
+
+        // 重置所有 UI 状态
+        trackingState = .stopped
+        currentResult = nil
+        confidence = 0
+        fps = 0
+        frameCount = 0
+        isPaused = false
+        lastFrameTime = 0
+        fpsAccumulator = 0
+        fpsFrameCount = 0
+    }
+
+    // MARK: - 追踪操作
+
+    /// 处理用户点击 — 开始追踪
     func handleTap(normalizedPoint: CGPoint) {
-        // 只在 idle 或 lost 状态响应
         switch trackingState {
-        case .idle, .lost:
+        case .ready, .lost:
             break
         default:
             return
         }
 
-        trackingState = .loading
-
-        // 初始化或重置 segmenter（liveStream 模式）
-        do {
-            if segmenter == nil {
-                let options = ETKSegmenterOptions()
-                options.runningMode = .liveStream
-                options.liveStreamDelegate = self
-                segmenter = try ETKSegmenter(options: options)
-            } else {
-                segmenter?.reset()
-            }
-
-            // 重置时间戳
-            timestampMs = 0
-
-            // 暂存点击坐标，等下一帧到达时发送带 prompt 的 segmentAsync
-            pendingTapPoint = normalizedPoint
-
-        } catch {
-            trackingState = .error(error.localizedDescription)
+        // 如果之前追踪过，先 reset
+        if trackingState == .lost || currentResult != nil {
+            segmenter?.reset()
         }
+
+        trackingState = .loading
+        timestampMs = 0
+        pendingTapPoint = normalizedPoint
     }
 
+    /// 重置追踪（保留模型和相机，回到 ready 状态）
+    func resetTracking() {
+        segmenter?.reset()
+        pendingTapPoint = nil
+        timestampMs = 0
+
+        trackingState = .ready
+        currentResult = nil
+        confidence = 0
+        fps = 0
+        frameCount = 0
+        isPaused = false
+        lastFrameTime = 0
+        fpsAccumulator = 0
+        fpsFrameCount = 0
+    }
+
+    // MARK: - 帧处理
+
     /// 处理相机帧 — 在 camera capture queue 上调用
-    ///
-    /// 直接调用 segmentAsync()，SDK 负责丢帧。
-    /// 不需要手动管理 isProcessingFrame。
     func processVideoFrame(_ pixelBuffer: CVPixelBuffer) {
         guard !isPaused, segmenter != nil else { return }
 
@@ -123,8 +193,7 @@ final class TrackingViewModel: ObservableObject, ETKSegmenterLiveStreamDelegate 
             return
         }
 
-        // 后续帧: 自动追踪（无 prompt）
-        // segmentAsync 会在上一帧还在处理时自动丢弃，无需外部判断
+        // 后续帧: 自动追踪
         guard trackingState == .tracking || trackingState == .loading else { return }
 
         try? segmenter?.segmentAsync(
@@ -133,33 +202,12 @@ final class TrackingViewModel: ObservableObject, ETKSegmenterLiveStreamDelegate 
         )
     }
 
-    /// 重置追踪
-    func reset() {
-        segmenter?.reset()
-        pendingTapPoint = nil
-        timestampMs = 0
-
-        trackingState = .idle
-        currentResult = nil
-        confidence = 0
-        fps = 0
-        frameCount = 0
-        isPaused = false
-        lastFrameTime = 0
-        fpsAccumulator = 0
-        fpsFrameCount = 0
-    }
-
     // MARK: - ETKSegmenterLiveStreamDelegate
-    //
-    // 回调在 SDK 内部串行队列执行（非主线程）。
-    // 所有 UI 更新 dispatch 到 main。
 
     func segmenter(_ segmenter: ETKSegmenter,
                    didFinishWith result: ETKTrackResult?,
                    timestampMs: Int,
                    error: Error?) {
-        // 计算 FPS（在回调线程）
         let now = CFAbsoluteTimeGetCurrent()
         var newFps: Double?
 
