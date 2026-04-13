@@ -17,8 +17,8 @@ let package = Package(
         // 预编译的 XCFramework（通过 GitHub Release 分发）
         .binaryTarget(
             name: "SegmentKit",
-            url: "https://github.com/chenweisomebody126/SegmentKit/releases/download/v0.2.0/SegmentKit.xcframework.zip",
-            checksum: "8079ec8d0437d5fccac73f32dd92d22691acd1e31c72c1746d21bf3b6e21cfe8"
+            url: "https://github.com/chenweisomebody126/SegmentKit/releases/download/v0.3.0/SegmentKit.xcframework.zip",
+            checksum: "83b7253e0e555cda16b482b946fdc3979c6cad1b3306e1b121a19cb81aac5222"
         ),
     ]
 )
