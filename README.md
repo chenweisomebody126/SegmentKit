@@ -33,7 +33,7 @@ Or add to your `Package.swift`:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/chenweisomebody126/SegmentKit", from: "0.2.0")
+    .package(url: "https://github.com/chenweisomebody126/SegmentKit", from: "0.4.1")
 ]
 ```
 
@@ -73,6 +73,106 @@ func segmenter(_ segmenter: ETKSegmenter,
 
 See [`Examples/SegmentKitDemo/`](Examples/SegmentKitDemo/) for a complete, runnable demo app with camera preview, tap-to-track, and mask overlay — localized in English and Chinese.
 
+## API Overview
+
+### Core Types
+
+| Type | Description |
+|------|-------------|
+| [`ETKSegmenter`](#etksegmenter) | Main entry point — create, configure, and run segmentation |
+| [`ETKSegmenterOptions`](#etksegmenteroptions) | Configuration options (mode, performance, multi-object) |
+| [`ETKPrompt`](#etkprompt) | What to segment — point, box, mask, or combination |
+| [`ETKTrackResult`](#etktrackresult) | Per-frame tracking output (mask, confidence, overlay) |
+| [`ETKSegmentResult`](#etksegmentresult) | Single-image segmentation output |
+
+### ETKSegmenter
+
+Three running modes for different use cases:
+
+```swift
+// Image mode — single frame, no state
+options.runningMode = .image
+let result = try segmenter.segment(image: photo, prompt: .point(tap))
+
+// Video mode — synchronous, frame-by-frame
+options.runningMode = .video
+let first = try segmenter.segment(videoFrame: frame, prompt: .point(tap), timestampMs: 0)
+let next  = try segmenter.segment(videoFrame: frame, timestampMs: 33)  // auto-track
+
+// LiveStream mode — async, camera pipeline
+options.runningMode = .liveStream
+options.liveStreamDelegate = self
+try segmenter.segmentAsync(frame: pixelBuffer, prompt: .point(tap), timestampMs: ts)
+```
+
+### ETKSegmenterOptions
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `runningMode` | `.image` | `.image` / `.video` / `.liveStream` |
+| `maxObjects` | `1` | Multi-object tracking (1–10). Each +1 object ≈ +3ms |
+| `memoryFrames` | `7` | Temporal memory depth (1–7). More = stabler tracking |
+| `interleavingEnabled` | `true` | IE∥MA parallel execution. ~29ms vs ~80ms per frame |
+| `multimaskEnabled` | `true` | 3-candidate mask selection vs single tracking token |
+| `computeUnit` | `.auto` | `.auto` / `.cpuAndANE` / `.cpuAndGPU` |
+
+### ETKPrompt
+
+All coordinates are **normalized (0–1)**, origin at top-left.
+
+```swift
+// Single foreground point
+.point(CGPoint(x: 0.5, y: 0.5))
+
+// Foreground + background points
+.points([
+    ETKLabeledPoint(point: target, label: .foreground),
+    ETKLabeledPoint(point: exclude, label: .background),
+])
+
+// Bounding box
+.boundingBox(CGRect(x: 0.2, y: 0.3, width: 0.4, height: 0.3))
+
+// Combine prompts
+.combined([.boundingBox(rect), .points([bg])])
+```
+
+### ETKTrackResult
+
+```swift
+result.mask            // [Float] — 256×256 logits (positive = foreground)
+result.confidence      // Float — IoU score (0–1)
+result.isTracking      // Bool — target still visible?
+result.binaryMask      // [Bool] — thresholded at 0
+result.probabilityMask // [Float] — sigmoid probabilities
+
+// Render overlay directly
+let overlay = result.overlayImage(on: frame, color: .systemBlue, opacity: 0.4)
+```
+
+### Multi-Object Tracking
+
+Track multiple objects simultaneously (requires `maxObjects > 1`):
+
+```swift
+options.maxObjects = 3
+let segmenter = try ETKSegmenter(options: options)
+
+// First frame — provide all prompts
+let results = try segmenter.segment(
+    videoFrame: frame,
+    prompts: [
+        0: .point(leftFoot),
+        1: .point(rightFoot),
+    ],
+    timestampMs: 0
+)
+// results[0] → left foot mask, results[1] → right foot mask
+
+// Subsequent frames — auto-track all objects
+let tracked = try segmenter.segmentMulti(videoFrame: frame, timestampMs: 33)
+```
+
 ## Pricing
 
 | Plan | Price | Features |
@@ -86,7 +186,10 @@ Start your free trial at [segmentkit.dev](https://segmentkit.dev).
 
 ## Documentation
 
-Full documentation available at [segmentkit.dev/docs](https://segmentkit.dev#docs).
+- [Quick Start](#quick-start) — Get running in 4 lines
+- [API Overview](#api-overview) — Core types and usage patterns
+- [Example App](Examples/SegmentKitDemo/) — Complete demo with camera + tap-to-track
+- [segmentkit.dev](https://segmentkit.dev) — Website and pricing
 
 ## License
 
