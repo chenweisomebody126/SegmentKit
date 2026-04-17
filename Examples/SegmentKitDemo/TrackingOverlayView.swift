@@ -70,7 +70,7 @@ class MaskOverlayUIView: UIView {
 
     /// 将 croppedMask logit 渲染为半透明 RGBA UIImage
     ///
-    /// 使用 croppedMask（已去掉 letterbox padding），宽高比与原始视频帧一致，
+    /// 使用 croppedMask，宽高比与原始视频帧一致，
     /// 配合 UIImageView 的 `.scaleAspectFill`，确保和 camera preview 完美对齐。
     private func renderMaskImage(trackResult: ETKTrackResult) -> UIImage? {
         let maskData = trackResult.croppedMask
