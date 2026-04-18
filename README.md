@@ -113,7 +113,6 @@ try segmenter.segmentAsync(frame: pixelBuffer, prompt: .point(tap), timestampMs:
 | `maxObjects` | `1` | Multi-object tracking (1–10). Each +1 object ≈ +3ms |
 | `memoryFrames` | `7` | Temporal memory depth (1–7). More = stabler tracking |
 | `interleavingEnabled` | `true` | IE∥MA parallel execution. ~29ms vs ~80ms per frame |
-| `multimaskEnabled` | `true` | 3-candidate mask selection vs single tracking token |
 | `computeUnit` | `.auto` | `.auto` / `.cpuAndANE` / `.cpuAndGPU` |
 
 ### ETKPrompt
